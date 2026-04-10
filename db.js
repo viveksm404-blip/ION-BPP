@@ -45,6 +45,7 @@ const orderSchema = new mongoose.Schema(
   {
     orderId: { type: String, required: true, unique: true },
     data:    { type: mongoose.Schema.Types.Mixed, required: true },
+    status:  { type: String, default: "CONFIRMED" },
   },
   {
     timestamps: true,

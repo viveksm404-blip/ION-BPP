@@ -2,6 +2,7 @@
 
 const path = require("path");
 const express = require("express");
+const cors = require("cors");
 const axios = require("axios");
 const { connectDB, CatalogPublish, Order } = require("./db");
 const { handleSelect } = require("./handlers/select");
@@ -9,6 +10,7 @@ const { handleInit } = require("./handlers/init");
 const { handleConfirm } = require("./handlers/confirm");
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const PORT = 4001;
@@ -158,7 +160,7 @@ app.post("/confirm", async (req, res) => {
   // Save order to DB before firing callback
   const orderId = payload.message?.contract?.id;
   try {
-    await Order.create({ orderId, data: payload });
+    await Order.create({ orderId, data: payload, status: "CONFIRMED" });
     console.log(`[confirm] order saved orderId=${orderId}`);
   } catch (err) {
     console.error("[confirm] failed to save order:", err.message);
