@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "on_confirm.json",
+  "title": "Beckn /on_confirm Request",
+  "description": "BPP validates payment, assigns the order ID (contract.id), and returns the confirmed contract with status ACTIVE, commitments ACTIVE, consideration AGREED, and performance ORDER_PLACED.",
+  "type": "object",
+  "required": ["context", "message"],
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "allOf": [
+        { "$ref": "#/$defs/Context" },
+        {
+          "required": ["action", "bapId", "bapUri", "bppId", "bppUri", "transactionId", "messageId", "timestamp"],
+          "properties": {
+            "action": { "type": "string", "const": "on_confirm" }
+          }
+        }
+      ]
+    },
+    "message": {
+      "type": "object",
+      "required": ["contract"],
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "allOf": [
+            { "$ref": "#/$defs/Contract" },
+            { "required": ["id"] }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Descriptor": {
+      "type": "object",
+      "properties": {
+        "code":           { "type": "string" },
+        "name":           { "type": "string" },
+        "shortDesc":      { "type": "string" },
+        "longDesc":       { "type": "string" },
+        "thumbnailImage": { "type": "string", "format": "uri" },
+        "docs":           { "type": "array", "items": { "$ref": "#/$defs/Document" } },
+        "mediaFile":      { "type": "array", "items": { "$ref": "#/$defs/MediaFile" } }
+      },
+      "additionalProperties": false
+    },
+    "Document": {
+      "type": "object",
+      "required": ["label", "url", "mimeType"],
+      "properties": {
+        "label":    { "type": "string" },
+        "mimeType": { "type": "string" },
+        "standard": { "type": "string" },
+        "url":      { "type": "string", "format": "uri" },
+        "security": {
+          "type": "object",
+          "properties": {
+            "checksum":           { "type": "string" },
+            "checksumAlgorithm":  { "type": "string", "enum": ["SHA256", "SHA512", "OTHER"] },
+            "signature":          { "type": "string" },
+            "signatureAlgorithm": { "type": "string" },
+            "keyId":              { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "MediaFile": {
+      "type": "object",
+      "properties": {
+        "label":    { "type": "string" },
+        "mimeType": { "type": "string" },
+        "uri":      { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "Attributes": {
+      "type": "object",
+      "required": ["@context", "@type"],
+      "properties": {
+        "@context": { "type": "string" },
+        "@type":    { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "Provider": {
+      "type": "object",
+      "required": ["id", "descriptor"],
+      "properties": {
+        "id":                 { "type": "string" },
+        "descriptor":         { "$ref": "#/$defs/Descriptor" },
+        "availableAt":        { "type": "array", "items": { "$ref": "#/$defs/Location" } },
+        "providerAttributes": { "$ref": "#/$defs/Attributes" }
+      },
+      "additionalProperties": false
+    },
+    "Location": {
+      "type": "object",
+      "required": ["geo"],
+      "additionalProperties": false,
+      "properties": {
+        "geo":     { "$ref": "#/$defs/GeoJSONGeometry" },
+        "address": { "$ref": "#/$defs/Address" }
+      }
+    },
+    "GeoJSONGeometry": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["Point","LineString","Polygon","MultiPoint","MultiLineString","MultiPolygon","GeometryCollection"] },
+        "coordinates": { "type": "array" },
+        "geometries":  { "type": "array" },
+        "bbox": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
+      },
+      "additionalProperties": true
+    },
+    "Address": {
+      "type": "object",
+      "properties": {
+        "addressCountry":  { "type": "string" },
+        "addressLocality": { "type": "string" },
+        "addressRegion":   { "type": "string" },
+        "extendedAddress": { "type": "string" },
+        "postalCode":      { "type": "string" },
+        "streetAddress":   { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "TimePeriod": {
+      "type": "object",
+      "properties": {
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate":   { "type": "string", "format": "date-time" },
+        "startTime": { "type": "string", "format": "time" },
+        "endTime":   { "type": "string", "format": "time" }
+      },
+      "additionalProperties": false
+    },
+    "Resource": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id":                 { "type": "string" },
+        "descriptor":         { "$ref": "#/$defs/Descriptor" },
+        "resourceAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Consideration": {
+      "type": "object",
+      "required": ["id", "status"],
+      "properties": {
+        "id":                      { "type": "string" },
+        "status":                  { "$ref": "#/$defs/Descriptor" },
+        "considerationAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Offer": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id":              { "type": "string" },
+        "descriptor":      { "$ref": "#/$defs/Descriptor" },
+        "provider":        { "$ref": "#/$defs/Provider" },
+        "resourceIds":     { "type": "array", "items": { "type": "string" } },
+        "considerations":  { "type": "array", "items": { "$ref": "#/$defs/Consideration" } },
+        "validity":        { "$ref": "#/$defs/TimePeriod" },
+        "offerAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Commitment": {
+      "type": "object",
+      "required": ["status", "resources", "offer"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": {
+          "type": "object",
+          "properties": {
+            "descriptor": {
+              "allOf": [
+                { "$ref": "#/$defs/Descriptor" },
+                { "properties": { "code": { "type": "string", "enum": ["DRAFT", "ACTIVE", "CLOSED"] } } }
+              ]
+            }
+          }
+        },
+        "resources":            { "type": "array", "items": { "$ref": "#/$defs/Resource" } },
+        "offer":                { "$ref": "#/$defs/Offer" },
+        "commitmentAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Performance": {
+      "type": "object",
+      "description": "status.code is typically ORDER_PLACED on on_confirm.",
+      "properties": {
+        "id":                    { "type": "string" },
+        "status":                { "$ref": "#/$defs/Descriptor" },
+        "commitmentIds":         { "type": "array", "items": { "type": "string" } },
+        "performanceAttributes": { "$ref": "#/$defs/Attributes" }
+      },
+      "additionalProperties": false
+    },
+    "Settlement": {
+      "type": "object",
+      "properties": {
+        "id":                   { "type": "string" },
+        "considerationId":      { "type": "string" },
+        "status":               { "type": "string", "enum": ["DRAFT", "COMMITTED", "COMPLETE"] },
+        "settlementAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Participant": {
+      "type": "object",
+      "properties": {
+        "id":                    { "type": "string" },
+        "descriptor":            { "$ref": "#/$defs/Descriptor" },
+        "participantAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Contract": {
+      "type": "object",
+      "required": ["commitments"],
+      "additionalProperties": false,
+      "properties": {
+        "id":           { "type": "string", "format": "uuid", "description": "BPP-assigned order ID. Present and required on on_confirm." },
+        "descriptor":   { "$ref": "#/$defs/Descriptor" },
+        "commitments":  { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Commitment" } },
+        "consideration":{ "type": "array", "items": { "$ref": "#/$defs/Consideration" } },
+        "participants": { "type": "array", "items": { "$ref": "#/$defs/Participant" } },
+        "performance":  { "type": "array", "items": { "$ref": "#/$defs/Performance" } },
+        "settlements":  { "type": "array", "items": { "$ref": "#/$defs/Settlement" } },
+        "status": {
+          "allOf": [
+            { "$ref": "#/$defs/Descriptor" },
+            { "properties": { "code": { "type": "string", "enum": ["DRAFT", "ACTIVE", "CANCELLED", "COMPLETE"] } } }
+          ]
+        },
+        "contractAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+    "Context": {
+      "type": "object",
+      "properties": {
+        "domain":        { "type": "string" },
+        "location":      { "type": "object", "properties": { "city": { "type": "object", "properties": { "code": { "type": "string" } } }, "country": { "type": "object", "properties": { "code": { "type": "string" } } } } },
+        "action":        { "type": "string" },
+        "version":       { "type": "string", "const": "2.0.0" },
+        "bapId":         { "type": "string" },
+        "bapUri":        { "type": "string", "format": "uri" },
+        "bppId":         { "type": "string" },
+        "bppUri":        { "type": "string", "format": "uri" },
+        "transactionId": { "type": "string", "format": "uuid" },
+        "messageId":     { "type": "string", "format": "uuid" },
+        "networkId":     { "type": "string" },
+        "timestamp":     { "type": "string", "format": "date-time" },
+        "key":           { "type": "string" },
+        "ttl":           { "type": "string" },
+        "try":           { "type": "boolean" },
+        "schemaContext": { "type": "array", "items": { "type": "string", "format": "uri" } }
+      }
+    }
+  }
+}

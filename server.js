@@ -3,12 +3,15 @@
 const path = require("path");
 const express = require("express");
 const axios = require("axios");
-const { connectDB, CatalogPublish } = require("./db");
+const { connectDB, CatalogPublish, Order } = require("./db");
+const { handleSelect } = require("./handlers/select");
+const { handleInit } = require("./handlers/init");
+const { handleConfirm } = require("./handlers/confirm");
 
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 4001;
+const PORT = 4001;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -72,7 +75,10 @@ function makeHandler(action) {
     let payload;
     try {
       const staticData = loadStatic(action);
-      payload = { ...staticData, context: buildContext(req.body?.context ?? {}, action) };
+      payload = {
+        ...staticData,
+        context: buildContext(req.body?.context ?? {}, action),
+      };
     } catch (err) {
       console.error(
         `[${action}] failed to load static payload: ${err.message}`,
@@ -90,9 +96,78 @@ function makeHandler(action) {
 // ---------------------------------------------------------------------------
 // Beckn transaction endpoints
 // ---------------------------------------------------------------------------
-app.post("/select", makeHandler("select"));
-app.post("/init", makeHandler("init"));
-app.post("/confirm", makeHandler("confirm"));
+app.post("/select", async (req, res) => {
+  console.log("\n[select] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[select] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_select";
+
+  let payload;
+  try {
+    payload = await handleSelect(req.body);
+  } catch (err) {
+    console.error("[select] handleSelect failed:", err.message);
+    return;
+  }
+
+  await delay(2000);
+  console.log("[select] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
+app.post("/init", async (req, res) => {
+  console.log("\n[init] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[init] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_init";
+
+  let payload;
+  try {
+    payload = handleInit(req.body);
+  } catch (err) {
+    console.error("[init] handleInit failed:", err.message);
+    return;
+  }
+
+  await delay(2000);
+  console.log("[init] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
+app.post("/confirm", async (req, res) => {
+  console.log("\n[confirm] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[confirm] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_confirm";
+
+  let payload;
+  try {
+    payload = handleConfirm(req.body);
+  } catch (err) {
+    console.error("[confirm] handleConfirm failed:", err.message);
+    return;
+  }
+
+  // Save order to DB before firing callback
+  const orderId = payload.message?.contract?.id;
+  try {
+    await Order.create({ orderId, data: payload });
+    console.log(`[confirm] order saved orderId=${orderId}`);
+  } catch (err) {
+    console.error("[confirm] failed to save order:", err.message);
+  }
+
+  await delay(2000);
+  console.log("[confirm] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
 app.post("/status", makeHandler("status"));
 app.post("/track", makeHandler("track"));
 
@@ -145,8 +220,10 @@ app.post("/catalog/publish", async (req, res) => {
     console.log(`[catalog/publish] stored document id=${doc._id}`);
     res.status(200).json({ ...fabricResponse.data, id: doc._id });
   } catch (err) {
-    console.error("[catalog/publish] failed to store in DB:", err.message);
-    res.status(500).json({ message: { ack: { status: "NACK" } }, error: err.message });
+    console.error("[catalog/publish] failed to store:", err.message);
+    res
+      .status(500)
+      .json({ message: { ack: { status: "NACK" } }, error: err.message });
   }
 });
 
