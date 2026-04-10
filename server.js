@@ -4,6 +4,9 @@ const path = require("path");
 const express = require("express");
 const axios = require("axios");
 const { connectDB, CatalogPublish } = require("./db");
+const { handleSelect } = require("./handlers/select");
+const { handleInit }    = require("./handlers/init");
+const { handleConfirm } = require("./handlers/confirm");
 
 const app = express();
 app.use(express.json());
@@ -90,9 +93,69 @@ function makeHandler(action) {
 // ---------------------------------------------------------------------------
 // Beckn transaction endpoints
 // ---------------------------------------------------------------------------
-app.post("/select", makeHandler("select"));
-app.post("/init", makeHandler("init"));
-app.post("/confirm", makeHandler("confirm"));
+app.post("/select", async (req, res) => {
+  console.log("\n[select] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[select] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_select";
+
+  let payload;
+  try {
+    payload = await handleSelect(req.body);
+  } catch (err) {
+    console.error("[select] handleSelect failed:", err.message);
+    return;
+  }
+
+  await delay(2000);
+  console.log("[select] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
+app.post("/init", async (req, res) => {
+  console.log("\n[init] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[init] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_init";
+
+  let payload;
+  try {
+    payload = handleInit(req.body);
+  } catch (err) {
+    console.error("[init] handleInit failed:", err.message);
+    return;
+  }
+
+  await delay(2000);
+  console.log("[init] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
+app.post("/confirm", async (req, res) => {
+  console.log("\n[confirm] request payload:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log("[confirm] sending ACK:", JSON.stringify(ACK));
+  res.json(ACK);
+
+  const callbackUrl = "http://localhost:8082/bpp/caller/on_confirm";
+
+  let payload;
+  try {
+    payload = handleConfirm(req.body);
+  } catch (err) {
+    console.error("[confirm] handleConfirm failed:", err.message);
+    return;
+  }
+
+  await delay(2000);
+  console.log("[confirm] firing callback →", callbackUrl);
+  await sendCallback(callbackUrl, payload);
+});
 app.post("/status", makeHandler("status"));
 app.post("/track", makeHandler("track"));
 
