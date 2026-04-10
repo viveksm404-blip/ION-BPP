@@ -43,9 +43,10 @@ const CatalogPublish = mongoose.model("CatalogPublish", catalogPublishSchema);
 // { orderId: String, data: Object (full on_confirm payload) }
 const orderSchema = new mongoose.Schema(
   {
-    orderId: { type: String, required: true, unique: true },
-    data:    { type: mongoose.Schema.Types.Mixed, required: true },
-    status:  { type: String, default: "CONFIRMED" },
+    orderId:       { type: String, required: true, unique: true },
+    transactionId: { type: String },
+    data:          { type: mongoose.Schema.Types.Mixed, required: true },
+    status:        { type: String, default: "CONFIRMED" },
   },
   {
     timestamps: true,

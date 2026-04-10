@@ -160,8 +160,9 @@ app.post("/confirm", async (req, res) => {
 
   // Save order to DB before firing callback
   const orderId = payload.message?.contract?.id;
+  const transactionId = payload.context?.transactionId;
   try {
-    await Order.create({ orderId, data: payload, status: "CONFIRMED" });
+    await Order.create({ orderId, transactionId, data: payload, status: "CONFIRMED" });
     console.log(`[confirm] order saved orderId=${orderId}`);
   } catch (err) {
     console.error("[confirm] failed to save order:", err.message);
@@ -181,6 +182,7 @@ app.post("/status", async (req, res) => {
 
   const callbackUrl = "http://localhost:8082/bpp/caller/on_status";
   const context = req.body?.context ?? {};
+  const transactionId = context?.transactionId;
 
   for (let i = 1; i <= 3; i++) {
     let payload;
@@ -198,6 +200,19 @@ app.post("/status", async (req, res) => {
     await delay(i === 1 ? 2000 : 5000);
     console.log(`[status] firing callback ${i}/3 → ${callbackUrl}`);
     await sendCallback(callbackUrl, payload);
+
+    // Update order status in DB for response 2 and 3
+    if (i >= 2 && transactionId) {
+      const performanceStatus = payload.message?.contract?.performance?.[0]?.status?.code;
+      if (performanceStatus) {
+        try {
+          await Order.findOneAndUpdate({ transactionId }, { status: performanceStatus });
+          console.log(`[status] order transactionId=${transactionId} status updated to ${performanceStatus}`);
+        } catch (err) {
+          console.error(`[status] failed to update order status: ${err.message}`);
+        }
+      }
+    }
   }
 });
 app.post("/track", makeHandler("track"));
@@ -283,6 +298,43 @@ app.get("/orders", async (req, res) => {
     });
   } catch (err) {
     console.error("[orders] failed to fetch:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Dashboard endpoint
+// ---------------------------------------------------------------------------
+app.get("/dashboard", async (req, res) => {
+  try {
+    const [
+      productAgg,
+      totalOrders,
+      confirmedOrders,
+      enRouteOrders,
+      deliveredOrders,
+    ] = await Promise.all([
+      CatalogPublish.aggregate([
+        { $project: { itemCount: { $size: { $ifNull: ["$items", []] } } } },
+        { $group: { _id: null, total: { $sum: "$itemCount" } } },
+      ]),
+      Order.countDocuments(),
+      Order.countDocuments({ status: "CONFIRMED" }),
+      Order.countDocuments({ status: "EN_ROUTE" }),
+      Order.countDocuments({ status: "DELIVERED" }),
+    ]);
+
+    const totalProducts = productAgg[0]?.total ?? 0;
+
+    res.json({
+      totalProducts,
+      totalOrders,
+      confirmedOrders,
+      enRouteOrders,
+      deliveredOrders,
+    });
+  } catch (err) {
+    console.error("[dashboard] failed:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
