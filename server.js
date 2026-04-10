@@ -5,13 +5,13 @@ const express = require("express");
 const axios = require("axios");
 const { connectDB, CatalogPublish, Order } = require("./db");
 const { handleSelect } = require("./handlers/select");
-const { handleInit }    = require("./handlers/init");
+const { handleInit } = require("./handlers/init");
 const { handleConfirm } = require("./handlers/confirm");
 
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 4001;
+const PORT = 4001;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,7 +75,10 @@ function makeHandler(action) {
     let payload;
     try {
       const staticData = loadStatic(action);
-      payload = { ...staticData, context: buildContext(req.body?.context ?? {}, action) };
+      payload = {
+        ...staticData,
+        context: buildContext(req.body?.context ?? {}, action),
+      };
     } catch (err) {
       console.error(
         `[${action}] failed to load static payload: ${err.message}`,
@@ -181,7 +184,9 @@ app.post("/catalog/publish", async (req, res) => {
     res.status(200).json({ message: { ack: { status: "ACK" } }, id: doc._id });
   } catch (err) {
     console.error("[catalog/publish] failed to store:", err.message);
-    res.status(500).json({ message: { ack: { status: "NACK" } }, error: err.message });
+    res
+      .status(500)
+      .json({ message: { ack: { status: "NACK" } }, error: err.message });
   }
 });
 
