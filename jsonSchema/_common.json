@@ -1,0 +1,357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "_common.json",
+  "title": "Beckn Protocol v2.0.0 — Shared Definitions",
+  "description": "Reusable $defs extracted from the Beckn OpenAPI 3.1.1 spec. Import these definitions by copying the $defs block into consumer schemas, or reference via relative $ref if your toolchain supports cross-file resolution.",
+  "$defs": {
+    "Descriptor": {
+      "type": "object",
+      "description": "Human/agent-readable description of an entity. code is machine-readable; name/shortDesc/longDesc are for display.",
+      "properties": {
+        "code":          { "type": "string" },
+        "name":          { "type": "string" },
+        "shortDesc":     { "type": "string" },
+        "longDesc":      { "type": "string" },
+        "thumbnailImage":{ "type": "string", "format": "uri" },
+        "docs":          { "type": "array", "items": { "$ref": "#/$defs/Document" } },
+        "mediaFile":     { "type": "array", "items": { "$ref": "#/$defs/MediaFile" } }
+      },
+      "additionalProperties": false
+    },
+
+    "Document": {
+      "type": "object",
+      "required": ["label", "url", "mimeType"],
+      "properties": {
+        "label":    { "type": "string" },
+        "mimeType": { "type": "string" },
+        "standard": { "type": "string" },
+        "url":      { "type": "string", "format": "uri" },
+        "security": {
+          "type": "object",
+          "properties": {
+            "checksum":           { "type": "string" },
+            "checksumAlgorithm":  { "type": "string", "enum": ["SHA256", "SHA512", "OTHER"] },
+            "signature":          { "type": "string" },
+            "signatureAlgorithm": { "type": "string" },
+            "keyId":              { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "MediaFile": {
+      "type": "object",
+      "properties": {
+        "label":    { "type": "string" },
+        "mimeType": { "type": "string" },
+        "uri":      { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+
+    "Attributes": {
+      "type": "object",
+      "description": "JSON-LD aware domain-specific attribute bag. @context and @type are required; additional domain properties are allowed.",
+      "required": ["@context", "@type"],
+      "properties": {
+        "@context": { "type": "string", "format": "uri" },
+        "@type":    { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+
+    "GeoJSONGeometry": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Point","LineString","Polygon","MultiPoint","MultiLineString","MultiPolygon","GeometryCollection"]
+        },
+        "coordinates": { "type": "array", "items": {} },
+        "geometries":  { "type": "array", "items": { "$ref": "#/$defs/GeoJSONGeometry" } },
+        "bbox": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "number" }
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "Address": {
+      "type": "object",
+      "description": "Postal address aligned with schema.org PostalAddress.",
+      "properties": {
+        "addressCountry":  { "type": "string" },
+        "addressLocality": { "type": "string" },
+        "addressRegion":   { "type": "string" },
+        "extendedAddress": { "type": "string" },
+        "postalCode":      { "type": "string" },
+        "streetAddress":   { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "Location": {
+      "type": "object",
+      "required": ["geo"],
+      "additionalProperties": false,
+      "properties": {
+        "geo":     { "$ref": "#/$defs/GeoJSONGeometry" },
+        "address": { "$ref": "#/$defs/Address" }
+      }
+    },
+
+    "TimePeriod": {
+      "type": "object",
+      "anyOf": [
+        { "required": ["startDate"] },
+        { "required": ["endDate"] },
+        { "required": ["startTime", "endTime"] }
+      ],
+      "properties": {
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate":   { "type": "string", "format": "date-time" },
+        "startTime": { "type": "string", "format": "time" },
+        "endTime":   { "type": "string", "format": "time" }
+      },
+      "additionalProperties": false
+    },
+
+    "Provider": {
+      "type": "object",
+      "required": ["id", "descriptor"],
+      "properties": {
+        "id":                 { "type": "string" },
+        "descriptor":         { "$ref": "#/$defs/Descriptor" },
+        "availableAt":        { "type": "array", "items": { "$ref": "#/$defs/Location" } },
+        "providerAttributes": { "$ref": "#/$defs/Attributes" }
+      },
+      "additionalProperties": false
+    },
+
+    "Resource": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id":                 { "type": "string" },
+        "descriptor":         { "$ref": "#/$defs/Descriptor" },
+        "resourceAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Consideration": {
+      "type": "object",
+      "required": ["id", "status"],
+      "description": "Generalized value exchanged under a Contract. status is a Descriptor (code is a plain string — no descriptor wrapper).",
+      "properties": {
+        "id":     { "type": "string" },
+        "status": { "$ref": "#/$defs/Descriptor" },
+        "considerationAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Offer": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id":          { "type": "string" },
+        "descriptor":  { "$ref": "#/$defs/Descriptor" },
+        "provider":    { "$ref": "#/$defs/Provider" },
+        "resourceIds": { "type": "array", "items": { "type": "string" } },
+        "addOns":      { "type": "array" },
+        "considerations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Consideration" }
+        },
+        "validity":    { "$ref": "#/$defs/TimePeriod" },
+        "availableTo": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "id"],
+            "properties": {
+              "type": { "type": "string", "enum": ["NETWORK", "PARTICIPANT", "ROLE"] },
+              "id":   { "type": "string" }
+            }
+          }
+        },
+        "offerAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Commitment": {
+      "type": "object",
+      "required": ["status", "resources", "offer"],
+      "description": "A single line-item commitment within a contract. status uses a nested descriptor wrapper.",
+      "properties": {
+        "id": { "type": "string" },
+        "status": {
+          "type": "object",
+          "properties": {
+            "descriptor": {
+              "allOf": [
+                { "$ref": "#/$defs/Descriptor" },
+                {
+                  "properties": {
+                    "code": { "type": "string", "enum": ["DRAFT", "ACTIVE", "CLOSED"] }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Resource" }
+        },
+        "offer": { "$ref": "#/$defs/Offer" },
+        "commitmentAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Participant": {
+      "type": "object",
+      "properties": {
+        "id":          { "type": "string" },
+        "descriptor":  { "$ref": "#/$defs/Descriptor" },
+        "participantAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Performance": {
+      "type": "object",
+      "description": "Generalized execution/fulfillment unit. status is a plain Descriptor.",
+      "properties": {
+        "id":     { "type": "string" },
+        "status": { "$ref": "#/$defs/Descriptor" },
+        "commitmentIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "performanceAttributes": { "$ref": "#/$defs/Attributes" }
+      },
+      "additionalProperties": false
+    },
+
+    "Settlement": {
+      "type": "object",
+      "properties": {
+        "id":              { "type": "string" },
+        "considerationId": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT", "COMMITTED", "COMPLETE"]
+        },
+        "settlementAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Contract": {
+      "type": "object",
+      "required": ["commitments"],
+      "additionalProperties": false,
+      "properties": {
+        "id":          { "type": "string", "format": "uuid" },
+        "descriptor":  { "$ref": "#/$defs/Descriptor" },
+        "commitments": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Commitment" }
+        },
+        "consideration": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Consideration" }
+        },
+        "participants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Participant" }
+        },
+        "performance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Performance" }
+        },
+        "settlements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Settlement" }
+        },
+        "status": {
+          "allOf": [
+            { "$ref": "#/$defs/Descriptor" },
+            {
+              "properties": {
+                "code": { "type": "string", "enum": ["DRAFT", "ACTIVE", "CANCELLED", "COMPLETE"] }
+              }
+            }
+          ]
+        },
+        "contractAttributes": { "$ref": "#/$defs/Attributes" }
+      }
+    },
+
+    "Context": {
+      "type": "object",
+      "description": "Base Beckn context. No required fields at the base level — endpoint schemas add action const and any additional required fields.",
+      "properties": {
+        "domain":   { "type": "string" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "city":    { "type": "object", "properties": { "code": { "type": "string" } } },
+            "country": { "type": "object", "properties": { "code": { "type": "string" } } }
+          }
+        },
+        "action":        { "type": "string" },
+        "version":       { "type": "string", "const": "2.0.0" },
+        "bapId":         { "type": "string" },
+        "bapUri":        { "type": "string", "format": "uri" },
+        "bppId":         { "type": "string" },
+        "bppUri":        { "type": "string", "format": "uri" },
+        "transactionId": { "type": "string", "format": "uuid" },
+        "messageId":     { "type": "string", "format": "uuid" },
+        "networkId":     { "type": "string" },
+        "timestamp":     { "type": "string", "format": "date-time" },
+        "key":           { "type": "string" },
+        "ttl":           { "type": "string" },
+        "try":           { "type": "boolean", "description": "Sandbox / preview mode flag. true = preview without state change; false (default) = commit." },
+        "schemaContext": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+
+    "AckResponse": {
+      "type": "object",
+      "description": "Synchronous ACK/NACK returned immediately for every Beckn request.",
+      "required": ["message"],
+      "properties": {
+        "message": {
+          "type": "object",
+          "required": ["ack"],
+          "properties": {
+            "ack": {
+              "type": "object",
+              "required": ["status"],
+              "properties": {
+                "status": { "type": "string", "enum": ["ACK", "NACK"] }
+              }
+            },
+            "error": {
+              "type": "object",
+              "properties": {
+                "code":    { "type": "string" },
+                "paths":   { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
