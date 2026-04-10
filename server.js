@@ -121,7 +121,8 @@ app.post("/catalog/publish", async (req, res) => {
   }
 
   // 2. Check for ACK from fabric
-  const ackStatus = fabricResponse.data?.message?.ack?.status;
+  const data = fabricResponse.data;
+  const ackStatus = data?.status ?? data?.message?.ack?.status;
   if (ackStatus !== "ACK") {
     console.warn("[catalog/publish] fabric returned NACK — not storing");
     return res.status(400).json(fabricResponse.data);
@@ -129,7 +130,18 @@ app.post("/catalog/publish", async (req, res) => {
 
   // 3. Store in MongoDB only on ACK
   try {
-    const doc = await CatalogPublish.create(req.body);
+    const catalogs = req.body?.message?.catalogs ?? [];
+    const items = catalogs.flatMap((c) => c.resources ?? []);
+    const offers = catalogs.flatMap((c) => c.offers ?? []);
+
+    const payload = {
+      context: req.body.context,
+      message: req.body.message,
+      items,
+      offers,
+    };
+
+    const doc = await CatalogPublish.create(payload);
     console.log(`[catalog/publish] stored document id=${doc._id}`);
     res.status(200).json({ ...fabricResponse.data, id: doc._id });
   } catch (err) {
