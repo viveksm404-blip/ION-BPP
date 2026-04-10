@@ -10,7 +10,8 @@ const { handleInit } = require("./handlers/init");
 const { handleConfirm } = require("./handlers/confirm");
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], allowedHeaders: "*" }));
+app.options("*", cors());
 app.use(express.json());
 
 const PORT = 4001;
