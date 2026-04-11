@@ -1,0 +1,415 @@
+openapi: 3.1.0
+info:
+  title: BPP FnB App — Resource API
+  version: 1.0.0
+  description: API for registering or updating a catalog item (resource) on the BPP.
+
+servers:
+  - url: http://localhost:4001
+    description: Local development server
+
+paths:
+  /resources/add:
+    post:
+      summary: Add or update a resource (catalog item)
+      description: >
+        Creates a new resource document or updates an existing one (upsert by `resourceId`).
+        Resources store all item-level data reused across the full transaction lifecycle
+        (select → init → confirm → status).
+        Returns ACK on success, NACK with an error message on failure.
+      operationId: addResource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceRequest'
+            example:
+              resourceId: item-butter-chicken-001
+              offerId: offer-butter-chicken-001
+              providerId: provider-test-001
+              name: Butter Chicken
+              shortDesc: Tender chicken in a rich tomato-butter gravy
+              imageUri: https://tourism-bpp-infra2.becknprotocol.io/attachments/view/butter-chicken.jpg
+              unitPrice: 280
+              currency: INR
+              unitCode: EA
+              resourceAttributes:
+                brand: Spice Garden
+                originCountry: IN
+                weight:
+                  unitQuantity: 350
+                  unitCode: GRAM
+                foodClassification: NON_VEG
+                allergens: [DAIRY, GLUTEN]
+                cuisine: North Indian
+                preparation:
+                  instructions: Heat and serve
+                  storage: Refrigerate below 4°C
+                  shelfLife: PT4H
+              offerAttributes:
+                policies:
+                  returns:
+                    allowed: false
+                  cancellation:
+                    allowed: true
+                    window: PT30M
+                    cutoffEvent: BEFORE_PACKING
+                  replacement:
+                    allowed: false
+                paymentConstraints:
+                  codAvailable: true
+                  paymentMethods: [COD, UPI]
+                serviceability:
+                  maxDistance: 8
+                  unit: KM
+                  timing:
+                    - daysOfWeek: [MON, TUE, WED, THU, FRI, SAT, SUN]
+                      timeRange:
+                        start: "11:00"
+                        end: "22:00"
+              isActive: true
+              isPublished: false
+      responses:
+        '201':
+          description: Resource created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+              example:
+                message:
+                  ack:
+                    status: ACK
+                resourceId: item-butter-chicken-001
+        '400':
+          description: Validation error or bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NackResponse'
+              example:
+                message:
+                  ack:
+                    status: NACK
+                error: "resources validation failed: unitPrice: Path `unitPrice` is required."
+
+components:
+  schemas:
+
+    ResourceRequest:
+      type: object
+      required:
+        - resourceId
+        - offerId
+        - providerId
+        - name
+        - shortDesc
+        - unitPrice
+        - resourceAttributes
+        - isActive
+      properties:
+
+        resourceId:
+          type: string
+          description: Unique identifier for the item. Used as the upsert key.
+          example: item-butter-chicken-001
+
+        offerId:
+          type: string
+          description: Identifier of the offer linked to this resource (1:1 relationship).
+          example: offer-butter-chicken-001
+
+        providerId:
+          type: string
+          description: ID of the provider (store) this item belongs to. Must exist in the providers collection.
+          example: provider-test-001
+
+        name:
+          type: string
+          description: Display name of the item.
+          example: Butter Chicken
+
+        shortDesc:
+          type: string
+          description: Short human-readable description shown in search results.
+          example: Tender chicken in a rich tomato-butter gravy
+
+        imageUri:
+          type: string
+          format: uri
+          description: URL of the product image.
+          example: https://tourism-bpp-infra2.becknprotocol.io/attachments/view/butter-chicken.jpg
+
+        unitPrice:
+          type: number
+          description: Price per unit in the specified currency.
+          example: 280
+
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+          default: INR
+          example: INR
+
+        unitCode:
+          type: string
+          description: Unit of measure for one item.
+          default: EA
+          enum: [EA, KG, G, L, ML, PACK]
+          example: EA
+
+        resourceAttributes:
+          $ref: '#/components/schemas/ResourceAttributes'
+
+        offerAttributes:
+          $ref: '#/components/schemas/OfferAttributes'
+
+        isActive:
+          type: boolean
+          description: Whether the item is currently available for ordering.
+          default: true
+          example: true
+
+        isPublished:
+          type: boolean
+          description: Whether the item has been pushed to the catalog discovery service. Set to true automatically after a successful /publish call.
+          default: false
+          example: false
+
+    ResourceAttributes:
+      type: object
+      description: FnB-specific item attributes stored in DB and used during transaction flow.
+      required:
+        - brand
+        - originCountry
+        - weight
+        - foodClassification
+        - cuisine
+        - preparation
+      properties:
+
+        brand:
+          type: string
+          description: Brand or restaurant name.
+          example: Spice Garden
+
+        originCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of origin.
+          example: IN
+
+        weight:
+          type: object
+          required: [unitQuantity, unitCode]
+          properties:
+            unitQuantity:
+              type: number
+              description: Numeric weight value.
+              example: 350
+            unitCode:
+              type: string
+              description: Weight unit. Use GRAM for grams, KG for kilograms.
+              enum: [GRAM, KG, ML, L]
+              example: GRAM
+
+        foodClassification:
+          type: string
+          description: FSSAI food type classification.
+          enum: [VEG, NON_VEG, EGG]
+          example: NON_VEG
+
+        allergens:
+          type: array
+          description: List of allergens present in the item.
+          items:
+            type: string
+            enum: [GLUTEN, DAIRY, EGGS, NUTS, PEANUTS, SOY, FISH, SHELLFISH, SESAME]
+          example: [DAIRY, GLUTEN]
+
+        cuisine:
+          type: string
+          description: Cuisine style of the dish.
+          example: North Indian
+
+        preparation:
+          type: object
+          required: [instructions]
+          properties:
+            instructions:
+              type: string
+              description: Cooking or serving instructions.
+              example: Heat and serve
+            storage:
+              type: string
+              description: Storage instructions.
+              example: Refrigerate below 4°C
+            shelfLife:
+              type: string
+              description: Shelf life as an ISO 8601 duration.
+              example: PT4H
+
+    OfferAttributes:
+      type: object
+      description: Item-level offer settings. Fields here override provider-level defaults during catalog publish and transaction flow.
+      properties:
+
+        policies:
+          type: object
+          properties:
+            returns:
+              $ref: '#/components/schemas/ReturnPolicy'
+            cancellation:
+              $ref: '#/components/schemas/CancellationPolicy'
+            replacement:
+              $ref: '#/components/schemas/ReplacementPolicy'
+
+        paymentConstraints:
+          type: object
+          properties:
+            codAvailable:
+              type: boolean
+              description: Whether cash-on-delivery is accepted for this item.
+              default: false
+              example: true
+            paymentMethods:
+              type: array
+              description: Accepted payment methods for this item (overrides provider default).
+              items:
+                type: string
+                enum: [COD, UPI, PREPAID, CARD]
+              example: [COD, UPI]
+
+        serviceability:
+          type: object
+          description: Item-level serviceability constraints (overrides provider default).
+          properties:
+            maxDistance:
+              type: number
+              example: 8
+            unit:
+              type: string
+              enum: [KM, MILE]
+              default: KM
+              example: KM
+            timing:
+              type: array
+              items:
+                $ref: '#/components/schemas/TimingSlot'
+
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+
+        holidays:
+          type: array
+          description: ISO 8601 dates on which this item is unavailable.
+          items:
+            type: string
+            format: date
+          example: ["2026-01-26"]
+
+    ReturnPolicy:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          default: false
+          example: false
+        window:
+          type: string
+          description: ISO 8601 duration within which returns are accepted.
+          example: P1D
+        method:
+          type: string
+          description: Return method.
+          enum: [SELLER_PICKUP, BUYER_DROP]
+          example: SELLER_PICKUP
+
+    CancellationPolicy:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          default: false
+          example: true
+        window:
+          type: string
+          description: ISO 8601 duration within which cancellation is allowed.
+          example: PT30M
+        cutoffEvent:
+          type: string
+          description: Event after which cancellation is no longer allowed.
+          enum: [BEFORE_PACKING, BEFORE_DISPATCH]
+          example: BEFORE_PACKING
+
+    ReplacementPolicy:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          default: false
+          example: false
+        window:
+          type: string
+          description: ISO 8601 duration within which replacement is allowed.
+          example: P7D
+        method:
+          type: string
+          example: SELLER_PICKUP
+
+    TimingSlot:
+      type: object
+      properties:
+        daysOfWeek:
+          type: array
+          items:
+            type: string
+            enum: [MON, TUE, WED, THU, FRI, SAT, SUN]
+          example: [MON, TUE, WED, THU, FRI, SAT, SUN]
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+
+    TimeRange:
+      type: object
+      properties:
+        start:
+          type: string
+          description: Start time in HH:MM (24-hour) format.
+          example: "11:00"
+        end:
+          type: string
+          description: End time in HH:MM (24-hour) format.
+          example: "22:00"
+
+    AckResponse:
+      type: object
+      properties:
+        message:
+          type: object
+          properties:
+            ack:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [ACK]
+        resourceId:
+          type: string
+          description: The resourceId of the created/updated document.
+          example: item-butter-chicken-001
+
+    NackResponse:
+      type: object
+      properties:
+        message:
+          type: object
+          properties:
+            ack:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [NACK]
+        error:
+          type: string
+          description: Human-readable error detail.
