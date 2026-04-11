@@ -89,9 +89,15 @@ async function handleSelect(body) {
       }
 
       const { resource, offer } = match || {};
-
-      const unitPrice = resource?.unitPrice ?? resource?.price?.amount ?? 0;
-      const currency = resource?.currency ?? resource?.price?.currency ?? "INR";
+      console.log("resource", JSON.stringify(resource));
+      console.log("offer", JSON.stringify(offer));
+      const unitPrice =
+        offer?.offerAttributes?.price?.value ?? resource?.price?.amount ?? 0;
+      const currency =
+        offer?.offerAttributes?.price?.currency ??
+        resource?.currency ??
+        resource?.price?.currency ??
+        "INR";
       const qty = Number(c.commitmentAttributes?.quantity?.unitQuantity ?? 1);
       const lineTotal = Math.round(unitPrice * qty * 100) / 100;
       subtotal += lineTotal;
